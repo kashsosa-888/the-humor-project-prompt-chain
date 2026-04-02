@@ -100,6 +100,9 @@ export async function createHumorFlavorStep(humorFlavorId: string, formData: For
 
     const llmModelId = formData.get("llm_model_id");
     const llmTemperature = formData.get("llm_temperature");
+    const stepTypeId = formData.get("humor_flavor_step_type_id");
+    const inputTypeId = formData.get("llm_input_type_id");
+    const outputTypeId = formData.get("llm_output_type_id");
 
     const { error } = await admin.from("humor_flavor_steps").insert({
       humor_flavor_id: humorFlavorId,
@@ -109,6 +112,9 @@ export async function createHumorFlavorStep(humorFlavorId: string, formData: For
       llm_temperature: llmTemperature ? parseFloat(String(llmTemperature)) : null,
       llm_system_prompt: String(formData.get("llm_system_prompt") ?? "").trim() || null,
       llm_user_prompt: String(formData.get("llm_user_prompt") ?? "").trim() || null,
+      humor_flavor_step_type_id: stepTypeId ? parseInt(String(stepTypeId)) : null,
+      llm_input_type_id: inputTypeId ? parseInt(String(inputTypeId)) : null,
+      llm_output_type_id: outputTypeId ? parseInt(String(outputTypeId)) : null,
     });
 
     if (error) return { error: error.message };
@@ -126,6 +132,9 @@ export async function updateHumorFlavorStep(stepId: string, humorFlavorId: strin
 
     const llmModelId = formData.get("llm_model_id");
     const llmTemperature = formData.get("llm_temperature");
+    const stepTypeId = formData.get("humor_flavor_step_type_id");
+    const inputTypeId = formData.get("llm_input_type_id");
+    const outputTypeId = formData.get("llm_output_type_id");
 
     const { error } = await admin
       .from("humor_flavor_steps")
@@ -135,6 +144,9 @@ export async function updateHumorFlavorStep(stepId: string, humorFlavorId: strin
         llm_temperature: llmTemperature ? parseFloat(String(llmTemperature)) : null,
         llm_system_prompt: String(formData.get("llm_system_prompt") ?? "").trim() || null,
         llm_user_prompt: String(formData.get("llm_user_prompt") ?? "").trim() || null,
+        humor_flavor_step_type_id: stepTypeId ? parseInt(String(stepTypeId)) : null,
+        llm_input_type_id: inputTypeId ? parseInt(String(inputTypeId)) : null,
+        llm_output_type_id: outputTypeId ? parseInt(String(outputTypeId)) : null,
       })
       .eq("id", stepId);
 
@@ -142,6 +154,47 @@ export async function updateHumorFlavorStep(stepId: string, humorFlavorId: strin
 
     revalidatePath(`/tool/flavors/${humorFlavorId}`);
     return { success: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function duplicateHumorFlavor(id: string) {
+  try {
+    const { admin } = await requireAccess();
+
+    const { data: flavor, error: flavorErr } = await admin
+      .from("humor_flavors")
+      .select("slug, description")
+      .eq("id", id)
+      .single();
+    if (flavorErr || !flavor) return { error: flavorErr?.message ?? "Flavor not found" };
+
+    const { data: steps, error: stepsErr } = await admin
+      .from("humor_flavor_steps")
+      .select("order_by, description, llm_model_id, llm_temperature, llm_system_prompt, llm_user_prompt, humor_flavor_step_type_id, llm_input_type_id, llm_output_type_id")
+      .eq("humor_flavor_id", id)
+      .order("order_by", { ascending: true });
+    if (stepsErr) return { error: stepsErr.message };
+
+    // Create duplicate flavor
+    const { data: newFlavor, error: insertErr } = await admin
+      .from("humor_flavors")
+      .insert({ slug: `${flavor.slug}-copy`, description: flavor.description })
+      .select("id")
+      .single();
+    if (insertErr || !newFlavor) return { error: insertErr?.message ?? "Failed to create duplicate" };
+
+    // Copy steps
+    if (steps && steps.length > 0) {
+      const { error: stepsInsertErr } = await admin.from("humor_flavor_steps").insert(
+        steps.map((s) => ({ ...s, humor_flavor_id: newFlavor.id }))
+      );
+      if (stepsInsertErr) return { error: stepsInsertErr.message };
+    }
+
+    revalidatePath("/tool/flavors");
+    return { success: true, newId: newFlavor.id };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Unknown error" };
   }

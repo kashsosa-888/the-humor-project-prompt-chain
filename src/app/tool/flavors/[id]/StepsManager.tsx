@@ -18,11 +18,20 @@ interface Step {
   llm_system_prompt: string | null;
   llm_user_prompt: string | null;
   humor_flavor_id: string;
+  humor_flavor_step_type_id: number | null;
+  llm_input_type_id: number | null;
+  llm_output_type_id: number | null;
 }
 
 interface Model {
   id: string;
   name: string;
+}
+
+interface Lookup {
+  id: number;
+  slug: string;
+  description: string;
 }
 
 interface Flavor {
@@ -34,11 +43,14 @@ interface Flavor {
 interface StepFormProps {
   step?: Step;
   models: Model[];
+  stepTypes: Lookup[];
+  inputTypes: Lookup[];
+  outputTypes: Lookup[];
   flavorId: string;
   onClose: () => void;
 }
 
-function StepForm({ step, models, flavorId, onClose }: StepFormProps) {
+function StepForm({ step, models, stepTypes, inputTypes, outputTypes, flavorId, onClose }: StepFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,6 +88,51 @@ function StepForm({ step, models, flavorId, onClose }: StepFormProps) {
               placeholder="Brief description of what this step does"
               className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
+          </div>
+
+          {/* Step Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Step Type</label>
+            <select
+              name="humor_flavor_step_type_id"
+              defaultValue={step?.humor_flavor_step_type_id ?? ""}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value="">— Select step type —</option>
+              {stepTypes.map((t) => (
+                <option key={t.id} value={t.id}>{t.slug} — {t.description}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Input / Output Types */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Input Type</label>
+              <select
+                name="llm_input_type_id"
+                defaultValue={step?.llm_input_type_id ?? ""}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">— Select input type —</option>
+                {inputTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.description}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
+              <select
+                name="llm_output_type_id"
+                defaultValue={step?.llm_output_type_id ?? ""}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">— Select output type —</option>
+                {outputTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.description}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -163,10 +220,16 @@ export function StepsManager({
   flavor,
   initialSteps,
   models,
+  stepTypes,
+  inputTypes,
+  outputTypes,
 }: {
   flavor: Flavor;
   initialSteps: Step[];
   models: Model[];
+  stepTypes: Lookup[];
+  inputTypes: Lookup[];
+  outputTypes: Lookup[];
 }) {
   const router = useRouter();
   const [showNewStep, setShowNewStep] = useState(false);
@@ -176,6 +239,9 @@ export function StepsManager({
   const [stepError, setStepError] = useState<string | null>(null);
 
   const modelMap = Object.fromEntries(models.map((m) => [m.id, m.name]));
+  const stepTypeMap = Object.fromEntries(stepTypes.map((t) => [t.id, t.slug]));
+  const inputTypeMap = Object.fromEntries(inputTypes.map((t) => [t.id, t.description]));
+  const outputTypeMap = Object.fromEntries(outputTypes.map((t) => [t.id, t.description]));
 
   async function handleDelete(step: Step) {
     if (!confirm(`Delete step ${step.order_by}? This cannot be undone.`)) return;
@@ -274,6 +340,21 @@ export function StepsManager({
                   )}
 
                   <div className="flex flex-wrap gap-2 mb-2">
+                    {step.humor_flavor_step_type_id != null && (
+                      <span className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300 ring-1 ring-inset ring-purple-600/20 dark:ring-purple-400/20">
+                        {stepTypeMap[step.humor_flavor_step_type_id] ?? `type:${step.humor_flavor_step_type_id}`}
+                      </span>
+                    )}
+                    {step.llm_input_type_id != null && (
+                      <span className="inline-flex items-center rounded-md bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300 ring-1 ring-inset ring-green-600/20 dark:ring-green-400/20">
+                        in: {inputTypeMap[step.llm_input_type_id] ?? step.llm_input_type_id}
+                      </span>
+                    )}
+                    {step.llm_output_type_id != null && (
+                      <span className="inline-flex items-center rounded-md bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 text-xs font-medium text-orange-700 dark:text-orange-300 ring-1 ring-inset ring-orange-600/20 dark:ring-orange-400/20">
+                        out: {outputTypeMap[step.llm_output_type_id] ?? step.llm_output_type_id}
+                      </span>
+                    )}
                     {step.llm_model_id && (
                       <span className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-600/20 dark:ring-blue-400/20">
                         {modelMap[step.llm_model_id] ?? step.llm_model_id}
@@ -331,6 +412,9 @@ export function StepsManager({
         <StepForm
           flavorId={flavor.id}
           models={models}
+          stepTypes={stepTypes}
+          inputTypes={inputTypes}
+          outputTypes={outputTypes}
           onClose={() => setShowNewStep(false)}
         />
       )}
@@ -339,6 +423,9 @@ export function StepsManager({
           step={editingStep}
           flavorId={flavor.id}
           models={models}
+          stepTypes={stepTypes}
+          inputTypes={inputTypes}
+          outputTypes={outputTypes}
           onClose={() => setEditingStep(null)}
         />
       )}

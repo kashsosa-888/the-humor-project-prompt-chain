@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteHumorFlavor, updateHumorFlavor } from "../actions";
+import { deleteHumorFlavor, updateHumorFlavor, duplicateHumorFlavor } from "../actions";
 import Link from "next/link";
 
 interface Flavor {
@@ -14,7 +14,6 @@ interface Flavor {
 export function FlavorActions({ flavor }: { flavor: Flavor }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +26,19 @@ export function FlavorActions({ flavor }: { flavor: Flavor }) {
       setLoading(false);
     } else {
       router.refresh();
+    }
+  }
+
+  async function handleDuplicate() {
+    setLoading(true);
+    setError(null);
+    const result = await duplicateHumorFlavor(flavor.id);
+    if (result.error) {
+      setError(result.error);
+      setLoading(false);
+    } else {
+      router.refresh();
+      setLoading(false);
     }
   }
 
@@ -107,6 +119,14 @@ export function FlavorActions({ flavor }: { flavor: Flavor }) {
         className="rounded-md px-2 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
       >
         Edit
+      </button>
+      <button
+        onClick={handleDuplicate}
+        disabled={loading}
+        className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+        title="Duplicate flavor with all steps"
+      >
+        Duplicate
       </button>
       <button
         onClick={handleDelete}
